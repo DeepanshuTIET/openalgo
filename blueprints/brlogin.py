@@ -789,7 +789,7 @@ def broker_callback(broker, para=None):
         auth_token, feed_token, error_message = auth_function(request_token)
         forward_url = "broker.html"
 
-    elif broker == "pocketful":
+    elif broker in ("pocketful", "mastertrust"):
         # Handle the OAuth2 authorization code from the callback
         auth_code = request.args.get("code")
         state = request.args.get("state")
@@ -809,7 +809,8 @@ def broker_callback(broker, para=None):
             return handle_auth_failure(error_msg, forward_url="broker.html")
 
         logger.debug(
-            "Pocketful broker - authorization code present: %s, state present: %s",
+            "%s broker - authorization code present: %s, state present: %s",
+            broker,
             bool(auth_code),
             bool(state),
         )
@@ -1043,7 +1044,7 @@ def broker_callback(broker, para=None):
             auth_token = f"{auth_token}"
 
         # For brokers that have user_id and feed_token from authenticate_broker
-        if broker in ["angel", "compositedge", "pocketful", "definedge", "dhan", "motilal", "rmoney", "iiflcapital"]:
+        if broker in ["angel", "compositedge", "pocketful", "mastertrust", "definedge", "dhan", "motilal", "rmoney", "iiflcapital"]:
             # For OAuth brokers, handle missing session user
             if broker in ("compositedge", "rmoney", "iiflcapital") and "user" not in session:
                 # Get the admin user from the database

@@ -497,6 +497,26 @@ SPECS = {
         error={"status": "error", "message": "Invalid token"},
         patches={"get_client_id": lambda auth: "CLIENT01"},
     ),
+    "mastertrust": Spec(
+        path="/api/v1/positions",
+        br_symbol="SBIN-EQ",
+        book=lambda q: {
+            "status": "success",
+            "data": []
+            if q is None
+            else [
+                {
+                    "instrument_token": 3045,
+                    "trading_symbol": "SBIN-EQ",
+                    "exchange": "NSE",
+                    "product": "MIS",
+                    "net_quantity": q,
+                }
+            ],
+        },
+        error={"status": "error", "message": "Invalid token"},
+        patches={"get_client_id": lambda auth: "CLIENT01", "get_token": lambda s, e: "3045"},
+    ),
     "rmoney": Spec(path="/portfolio/positions", book=_xts_book, error=XTS_ERROR),
     "samco": Spec(
         path="/position/getPositions",

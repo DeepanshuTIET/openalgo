@@ -514,6 +514,7 @@ sudo rm -rf /var/lib/docker
 | IndMoney | `indmoney` | No |
 | Jainam XTS | `jainamxts` | Yes |
 | Kotak | `kotak` | No |
+| Master Trust | `mastertrust` | No |
 | Motilal Oswal | `motilal` | No |
 | MStock | `mstock` | No |
 | Nubra | `nubra` | No |

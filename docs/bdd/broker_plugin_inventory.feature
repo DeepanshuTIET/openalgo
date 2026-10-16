@@ -32,6 +32,7 @@ Feature: Broker plugin inventory
       | indmoney | IN_stock |
       | jainamxts | IN_stock |
       | kotak | IN_stock |
+      | mastertrust | IN_stock |
       | motilal | IN_stock |
       | mstock | IN_stock |
       | nubra | IN_stock |

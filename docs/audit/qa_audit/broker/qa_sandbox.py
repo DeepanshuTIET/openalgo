@@ -66,12 +66,22 @@ from qa_common import (  # noqa: E402
     write_report,
 )
 
-API_KEY = os.getenv("OPENALGO_API_KEY", "945bd843b8683f584321f6cf1fc55b664975321281ee536ee68aa9e36147eef6")
+API_KEY = os.getenv("OPENALGO_API_KEY", "3b211df0de70b8f5222f5ff0e3d74cd70953df6d3d67d412f036b49d09beddc5")
 HOST = os.getenv("OPENALGO_HOST", "http://127.0.0.1:5000")
 HEAVY = os.getenv("QA_HEAVY", "") == "1"   # 500-symbol multiquotes, WS keepalive
 NO_WS = os.getenv("QA_WS", "1") == "0"   # websocket runs by default; QA_WS=0 disables
 WS_URL = os.getenv("OPENALGO_WS", "ws://127.0.0.1:8765")
 STRAT = "QA-SANDBOX"
+
+# Canonical index symbols in symbol-format.md that MCX itself has retired.
+# The checklist (MC-08) asks for these to be annotated, not counted as
+# defects. aliceblue/api/data.py records MCXENERGY and MCXMETAL returning no
+# data at all; the iCOMDEX family (MCXCOMPDEX, MCXMETLDEX, MCXENRGDEX, ...)
+# replaced the whole legacy set.
+LEGACY_INDEX = {
+    "MCX_INDEX": dict.fromkeys(("MCXCOMDEX", "MCXAGRI", "MCXENERGY", "MCXMETAL"),
+                               "legacy MCX index superseded by the iCOMDEX series"),
+}
 
 # Quote-only index exchanges. Their rows are never ordered, so tick size and
 # lot size do not apply to them - see MC-11.
@@ -172,7 +182,9 @@ def sec_master(run: Runner) -> None:
         headline = {
             "NSE_INDEX": ["NIFTY", "BANKNIFTY", "FINNIFTY", "MIDCPNIFTY", "NIFTYNXT50", "INDIAVIX"],
             "BSE_INDEX": ["SENSEX", "BANKEX", "SENSEX50"],
-            "MCX_INDEX": ["MCXBULLDEX", "MCXCOMDEX"],
+            # MCXCOMPDEX is the live iCOMDEX Composite. MCXCOMDEX is the
+            # legacy composite (see LEGACY_INDEX) and is not a headline.
+            "MCX_INDEX": ["MCXBULLDEX", "MCXCOMPDEX"],
         }
         missing = []
         with run.db() as c:
@@ -208,25 +220,31 @@ def sec_master(run: Runner) -> None:
                 have = {r[0] for r in c.execute(
                     "select symbol from symtoken where exchange=?", (ex,))}
                 folded = {normalise(h): h for h in have}
-                absent = unnormalised = 0
+                absent = unnormalised = retired = 0
                 for s in want:
                     if s in have:
                         continue
                     alias = folded.get(normalise(s))
+                    legacy = LEGACY_INDEX.get(ex, {}).get(s)
+                    if legacy and not alias:
+                        rows.append([ex, s, f"not a defect - {legacy}"])
+                        retired += 1
+                        continue
                     if alias:
                         rows.append([ex, s, f"present as unnormalised broker name {alias!r}"])
                         unnormalised += 1
                     else:
                         rows.append([ex, s, "absent from master"])
                         absent += 1
-                stats.append(f"{ex}: {len(want) - absent - unnormalised}/{len(want)} ok, "
-                             f"{unnormalised} unnormalised, {absent} absent")
+                stats.append(f"{ex}: {len(want) - absent - unnormalised - retired}/{len(want)} ok, "
+                             f"{unnormalised} unnormalised, {absent} absent, {retired} retired")
         run.env["missing_symbols"] = rows
         run.note_limit("canonical index coverage", "; ".join(stats))
-        if rows:
-            un = sum(1 for r in rows if r[2].startswith("present as"))
-            raise Warn(f"{len(rows)} canonical symbols not matched exactly "
-                       f"({un} unnormalised, {len(rows) - un} absent) - see Missing Symbols sheet")
+        defects = [r for r in rows if not r[2].startswith("not a defect")]
+        if defects:
+            un = sum(1 for r in defects if r[2].startswith("present as"))
+            raise Warn(f"{len(defects)} canonical symbols not matched exactly "
+                       f"({un} unnormalised, {len(defects) - un} absent) - see Missing Symbols sheet")
 
     run.check("MC-08", missing_report, endpoint="symtoken", expected="per-exchange diff, listed by name")
 
@@ -719,9 +737,21 @@ def sec_ticks(run: Runner) -> None:
     run.check("TS-19", lambda: mcx_named("COPPER", 0.05), endpoint="symtoken",
               exchange="MCX", symbol="COPPER...FUT", expected="0.05")
 
-    run.record("TS-20", SKIP,
-               "off-tick order rejection is exercised live by OD-20",
-               endpoint="placeorder")
+    def ts_off_tick():
+        """TS-20 - OD-20 covers a cash scrip; this covers a derivative row,
+        preferring the coarsest tick (MCX 1.00) where a fractional price is
+        furthest off the grid. The order is cancelled straight away so it
+        does not sit in the book the order sections inspect."""
+        slot = next((s for s in ("FUT_MCX", "FUT_NFO", "FUT_BFO") if s in m), None)
+        if not slot:
+            raise Skip("no derivative future resolved")
+        sym, ex = m[slot]
+        q = run.ok(run.client.quotes(symbol=sym, exchange=ex), f"quotes {sym}")["data"]
+        ltp = need_nonzero(q.get("ltp"), f"{sym}.ltp")
+        _off_tick_order(run, sym, ex, ltp, "NRML", _lot(run, sym, ex), "TS-20", cancel=True)
+
+    run.check("TS-20", ts_off_tick, endpoint="placeorder",
+              expected="off-tick LIMIT on a derivative snapped or cleanly rejected")
 
 
 # ==========================================================================
@@ -1511,24 +1541,33 @@ def sec_history(run: Runner) -> None:
               expected="daily and intraday land on the same session")
 
     def hs_oi():
-        """HS-11 - OI on F&O history where the broker supplies it."""
+        """HS-11 - OI on F&O history where the broker supplies it.
+
+        history_service adds oi=0 whenever the broker frame has no oi column,
+        so the column is always present and cannot tell "supplied" from
+        "not supplied". Zero on every candle of every F&O slot is how a
+        broker without history OI looks, and is N/A. OI on one slot but
+        all-zero on another is a real gap and fails.
+        """
         slots = [s for s in ("FUT_NFO", "OPT_ATM_CE_NFO") if s in m]
         if not slots:
             raise Skip("no F&O slot resolved")
-        found = []
+        found, zero = [], []
         for slot in slots:
             s, ex = m[slot]
             df, _ = hist(s, ex, "1m", 3, "HS-11")
-            cols = {c.lower() for c in df.columns}
-            if "oi" not in cols:
+            col = next((c for c in df.columns if c.lower() == "oi"), None)
+            if col is None or df.empty:
                 continue
-            col = next(c for c in df.columns if c.lower() == "oi")
             nz = sum(1 for v in df[col] if as_num(v, "oi") != 0)
             found.append(f"{s}: {nz}/{len(df)} candles carry OI")
-            need(nz > 0, f"{s}: history returns an oi column but every value is 0")
-        if not found:
-            raise Skip("broker does not return OI in history - recorded as N/A")
+            if nz == 0:
+                zero.append(s)
+        if not found or len(zero) == len(found):
+            raise Skip("broker does not return OI in history (every F&O candle is the "
+                       "service's oi=0 default) - recorded as N/A")
         run.note_limit("history OI", "; ".join(found))
+        need(not zero, f"OI present on some F&O history but every value is 0 for {zero}")
 
     run.check("HS-11", hs_oi, endpoint="history",
               expected="OI present and non-zero on F&O, or N/A")
@@ -2080,34 +2119,8 @@ def sec_orders(run: Runner) -> None:
         "LIMIT with price 0"),
         endpoint="placeorder", expected="clean 400")
 
-    def od_off_tick():
-        """OD-20 - an off-tick price must be snapped or cleanly rejected,
-        never accepted only for the exchange to bounce it later."""
-        with run.db() as c:
-            row = c.execute("select tick_size from symtoken where symbol=? and exchange=?",
-                            (sym, ex)).fetchone()
-        need(row and row[0], f"no tick size for {sym}")
-        tick = float(row[0])
-        off = round(ltp * 0.80 + tick / 3, 4)
-        r = run.client.placeorder(strategy=STRAT, symbol=sym, exchange=ex, action="BUY",
-                                  price_type="LIMIT", product="MIS", quantity=1, price=off)
-        if r.get("status") == "error":
-            run.note_limit("off-tick price handling", f"rejected: {str(r.get('message'))[:70]}")
-            return
-        oid = r.get("orderid")
-        run.track_order(oid, sym, ex, "MIS")
-        time.sleep(1.5)
-        st = run.ok(run.client.orderstatus(order_id=oid, strategy=STRAT), "status")["data"]
-        if st["order_status"] == "rejected":
-            raise AssertionError(
-                f"off-tick price {off} was accepted then rejected by the exchange - "
-                f"it should be snapped to the {tick} tick or refused up front")
-        got = as_num(st["price"], "price")
-        need(abs(round(got / tick) * tick - got) < 1e-6,
-             f"order resting at {got}, which is not a multiple of the tick {tick}")
-        run.note_limit("off-tick price handling", f"snapped {off} -> {got}")
-
-    run.check("OD-20", od_off_tick, endpoint="placeorder", exchange=ex, symbol=sym,
+    run.check("OD-20", lambda: _off_tick_order(run, sym, ex, ltp, "MIS", 1, "OD-20"),
+              endpoint="placeorder", exchange=ex, symbol=sym,
               expected="snapped to tick or cleanly rejected")
 
     # ---- smart order (SO table at quantity 1) ----
@@ -3089,6 +3102,40 @@ def sec_orders(run: Runner) -> None:
 
     run.check("LC-20", lc_full_trace, endpoint="place+modify+cancel+orderbook",
               expected="place -> open -> modify -> cancelled, all visible")
+
+
+def _off_tick_order(run: Runner, sym: str, ex: str, ltp: float, product: str,
+                    qty: int, tag: str, cancel: bool = False) -> None:
+    """OD-20 / TS-20 - an off-tick LIMIT must be snapped or cleanly rejected,
+    never accepted only for the exchange to bounce it later."""
+    with run.db() as c:
+        row = c.execute("select tick_size from symtoken where symbol=? and exchange=?",
+                        (sym, ex)).fetchone()
+    need(row and row[0], f"no tick size for {sym}")
+    tick = float(row[0])
+    off = round(ltp * 0.80 + tick / 3, 4)
+    r = run.client.placeorder(strategy=STRAT, symbol=sym, exchange=ex, action="BUY",
+                              price_type="LIMIT", product=product, quantity=qty, price=off)
+    if r.get("status") == "error":
+        run.note_limit(f"off-tick price handling ({tag} {ex})",
+                       f"rejected: {str(r.get('message'))[:70]}")
+        return
+    oid = r.get("orderid")
+    run.track_order(oid, sym, ex, product)
+    try:
+        time.sleep(1.5)
+        st = run.ok(run.client.orderstatus(order_id=oid, strategy=STRAT), "status")["data"]
+        if st["order_status"] == "rejected":
+            raise AssertionError(
+                f"off-tick price {off} was accepted then rejected by the exchange - "
+                f"it should be snapped to the {tick} tick or refused up front")
+        got = as_num(st["price"], "price")
+        need(abs(round(got / tick) * tick - got) < 1e-6,
+             f"order resting at {got}, which is not a multiple of the tick {tick}")
+        run.note_limit(f"off-tick price handling ({tag} {ex})", f"snapped {off} -> {got}")
+    finally:
+        if cancel:
+            run.client.cancelorder(order_id=oid, strategy=STRAT)
 
 
 def _lot(run: Runner, sym: str, ex: str) -> int:

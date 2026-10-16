@@ -51,6 +51,11 @@ class _CaptureLogger:
             f"code={SENTINEL}&state=opaque-state",
             (None, None, None, "authentication refused"),
         ),
+        (
+            "mastertrust",
+            f"code={SENTINEL}&state=opaque-state",
+            (None, None, None, "authentication refused"),
+        ),
         ("arrow", f"request-token={SENTINEL}", (None, "authentication refused")),
         ("hdfcsky", f"request_token={SENTINEL}", (None, "authentication refused")),
         (

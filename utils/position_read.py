@@ -62,6 +62,7 @@ BROKER_DISPLAY_NAMES = {
     "indmoney": "IndMoney",
     "jainamxts": "JainamXts",
     "kotak": "Kotak Securities",
+    "mastertrust": "Master Trust",
     "motilal": "Motilal Oswal",
     "mstock": "mStock by Mirae Asset",
     "nubra": "Nubra",

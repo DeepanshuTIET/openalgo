@@ -10,7 +10,7 @@ The installed plugin directories are the authoritative inventory:
 aliceblue, angel, arrow, compositedge, definedge, deltaexchange,
 dhan, dhan_sandbox, firstock, fivepaisa, fivepaisaxts, flattrade,
 fyers, groww, hdfcsecurities, hdfcsky, ibulls, iifl, iiflcapital,
-indmoney, jainamxts, kotak, motilal, mstock, nubra, paytm,
+indmoney, jainamxts, kotak, mastertrust, motilal, mstock, nubra, paytm,
 pocketful, rmoney, samco, shoonya, tradejini, tradesmart,
 upstox, wisdom, zebu, zerodha
 ```

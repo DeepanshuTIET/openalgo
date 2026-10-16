@@ -69,6 +69,7 @@ Order workflows from the REST API, hosted strategies, and Flow can use Analyzer 
 - Indmoney
 - JainamXTS
 - Kotak Neo
+- Master Trust
 - Motilal Oswal
 - Mstock
 - Nubra

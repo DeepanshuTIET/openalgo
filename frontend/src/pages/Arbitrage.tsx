@@ -123,8 +123,14 @@ function computeRow(pair: ArbitragePair, quotes: Map<string, Quote>, now: number
     direction = 'LONG_SPREAD'
   }
 
+  // Two months of one product never trade 2x apart. A ratio that far off means
+  // the legs are different products sharing a name (e.g. SILVER vs SILVER100
+  // in a broker master), so no spread is reported rather than a bogus one.
+  const comparable = !(nearMid && farMid) || (farMid / nearMid > 0.5 && farMid / nearMid < 2)
   const spreadPct =
-    bestCredit != null && nearMid && nearMid > 0 ? (bestCredit / nearMid) * 100 : undefined
+    comparable && bestCredit != null && nearMid && nearMid > 0
+      ? (bestCredit / nearMid) * 100
+      : undefined
   const rawSpread = farMid != null && nearMid != null ? farMid - nearMid : undefined
 
   const newest = Math.max(near?.ts ?? 0, far?.ts ?? 0)

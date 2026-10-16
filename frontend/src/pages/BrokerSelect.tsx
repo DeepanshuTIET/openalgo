@@ -39,6 +39,7 @@ const allBrokers = [
   { id: 'iiflcapital', name: 'IIFL Capital', authType: 'oauth' },
   { id: 'jainamxts', name: 'JainamXts', authType: 'totp' },
   { id: 'kotak', name: 'Kotak Securities', authType: 'totp' },
+  { id: 'mastertrust', name: 'Master Trust', authType: 'oauth' },
   { id: 'mstock', name: 'mStock by Mirae Asset', authType: 'totp' },
   { id: 'nubra', name: 'Nubra', authType: 'totp' },
   { id: 'paytm', name: 'Paytm Money', authType: 'oauth' },
@@ -213,6 +214,13 @@ export default function BrokerSelect() {
       case 'paytm':
         loginUrl = `https://login.paytmmoney.com/merchant-login?apiKey=${broker_api_key}&state={default}`
         break
+
+      case 'mastertrust': {
+        // Tradelab OAuth2 authorization-code login; the callback exchanges the code.
+        const state = generateRandomState()
+        loginUrl = `https://masterswift-beta.mastertrust.co.in/oauth2/auth?client_id=${broker_api_key}&redirect_uri=${encodeURIComponent(redirect_url)}&response_type=code&scope=${encodeURIComponent('orders holdings')}&state=${encodeURIComponent(state)}`
+        break
+      }
 
       case 'pocketful': {
         const state = generateRandomState()

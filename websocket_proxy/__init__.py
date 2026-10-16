@@ -69,6 +69,9 @@ from broker.jainamxts.streaming.jainamxts_adapter import JainamXTSWebSocketAdapt
 # Import the kotak_adapter
 from broker.kotak.streaming.kotak_adapter import KotakWebSocketAdapter
 
+# Import the mastertrust_adapter
+from broker.mastertrust.streaming.mastertrust_adapter import MastertrustWebSocketAdapter
+
 # Import the motilal_adapter
 from broker.motilal.streaming.motilal_adapter import MotilalWebSocketAdapter
 
@@ -139,6 +142,7 @@ register_adapter("definedge", DefinedgeWebSocketAdapter)
 register_adapter("paytm", PaytmWebSocketAdapter)
 register_adapter("indmoney", IndmoneyWebSocketAdapter)
 register_adapter("mstock", MstockWebSocketAdapter)
+register_adapter("mastertrust", MastertrustWebSocketAdapter)
 register_adapter("motilal", MotilalWebSocketAdapter)
 register_adapter("jainamxts", JainamXTSWebSocketAdapter)
 register_adapter("samco", SamcoWebSocketAdapter)
@@ -194,6 +198,7 @@ __all__ = [
     "PaytmWebSocketAdapter",
     "IndmoneyWebSocketAdapter",
     "MstockWebSocketAdapter",
+    "MastertrustWebSocketAdapter",
     "MotilalWebSocketAdapter",
     "JainamXTSWebSocketAdapter",
     "SamcoWebSocketAdapter",

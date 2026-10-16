@@ -42,7 +42,7 @@ generate_hex() {
 # Function to validate broker
 validate_broker() {
     local broker=$1
-    local valid_brokers="fivepaisa,fivepaisaxts,aliceblue,angel,arrow,compositedge,definedge,deltaexchange,dhan,dhan_sandbox,firstock,flattrade,fyers,groww,hdfcsecurities,hdfcsky,ibulls,iifl,iiflcapital,indmoney,jainamxts,kotak,motilal,mstock,nubra,paytm,pocketful,rmoney,samco,shoonya,tradejini,tradesmart,upstox,wisdom,zebu,zerodha"
+    local valid_brokers="fivepaisa,fivepaisaxts,aliceblue,angel,arrow,compositedge,definedge,deltaexchange,dhan,dhan_sandbox,firstock,flattrade,fyers,groww,hdfcsecurities,hdfcsky,ibulls,iifl,iiflcapital,indmoney,jainamxts,kotak,mastertrust,motilal,mstock,nubra,paytm,pocketful,rmoney,samco,shoonya,tradejini,tradesmart,upstox,wisdom,zebu,zerodha"
     [[ ",$valid_brokers," == *",$broker,"* ]]
 }
 
@@ -115,7 +115,7 @@ while true; do
     log "\nValid brokers:" "$BLUE"
     echo "fivepaisa, fivepaisaxts, aliceblue, angel, arrow, compositedge, definedge, deltaexchange,"
     echo "dhan, dhan_sandbox, firstock, flattrade, fyers, groww, hdfcsecurities, hdfcsky, ibulls, iifl, iiflcapital,"
-    echo "indmoney, jainamxts, kotak, motilal, mstock, nubra, paytm, pocketful,"
+    echo "indmoney, jainamxts, kotak, mastertrust, motilal, mstock, nubra, paytm, pocketful,"
     echo "rmoney, samco, shoonya, tradejini, tradesmart, upstox, wisdom, zebu, zerodha,"
     echo ""
     read -p "Enter your broker name: " BROKER_NAME

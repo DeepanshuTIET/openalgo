@@ -31,6 +31,7 @@ BROKERS = [
     "indmoney",
     "jainamxts",
     "kotak",
+    "mastertrust",
     "motilal",
     "mstock",
     "nubra",
